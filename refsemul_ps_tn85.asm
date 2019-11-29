@@ -23,16 +23,26 @@
 ;28.11.2017 код адаптирован для ATtiny45/85.
 ;28.11.2017 code was ported to ATtiny45/85
 ;Программа для эмуляции сигнала с датчиков ДНО и ДУИ для тестирования зажигания
+;Software for emulation of signals of non-missing tooth trigger wheels.
 ;
 ;Изменение оборотов производится путем изменения напряжения на выводе PB3 (вход АЦП)
 ;в диапазоне 0...5в.
 ; Выход ДУИ: PB1, PB2
 ; Выход ДНО: PB0, PB4
 ;
+;Changing of RPM is oerformed by altering of voltage at the PB3 pin of processor
+; in 0...5V range.
+; Output of the non-missing tooth wheel: PB1, PB2
+; Output of the reference sensor: PB0, PB4
+;
+;
 ; Есть возможность генерировать сигнал датчика фаз. Для этого в командной строке ассемблера нужно
 ; указать опцию -DCAMSENSOR. сигнад датчика фаз берется с PB1
+; Thare is a possibility also to generate a cam signal. For doing that you should specify -DCAMSENSOR
+; option in the command line of assembler.
 
 ; МК должен работать в режиме совместимости с ATtiny15. Для этого нужно установить fuse-биты CKSEL в 0011
+; Processor should work in the ATtiny15 compatibility mode. To do that you should set CKSEL fuses to 0011 value
 ;
 
 ;.include "tn15def.inc"
