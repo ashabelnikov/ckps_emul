@@ -22,18 +22,16 @@
 ;Created by Alexey A. Shabelnikov (STC) 21/10/2012, Kiev
 ;28.11.2017 код адаптирован для ATtiny45/85.
 ;28.11.2017 code was ported to ATtiny45/85
-;Программа для эмуляции сигнала с датчиков ДНО и ДУИ для тестирования зажигания
-;Software for emulation of signals of non-missing tooth trigger wheels.
+;Программа для эмуляции сигнала с датчика 60-2 для тестирования зажигания
+;Software for emulation of signals of 60-2 trigger wheels.
 ;
 ;Изменение оборотов производится путем изменения напряжения на выводе PB3 (вход АЦП)
 ;в диапазоне 0...5в.
 ; Выход ДУИ: PB1, PB2
-; Выход ДНО: PB0, PB4
 ;
 ;Changing of RPM is oerformed by altering of voltage at the PB3 pin of processor
 ; in 0...5V range.
 ; Output of the non-missing tooth wheel: PB1, PB2
-; Output of the reference sensor: PB0, PB4
 ;
 ;
 ; Есть возможность генерировать сигнал датчика фаз. Для этого в командной строке ассемблера нужно
@@ -45,19 +43,16 @@
 ; Processor should work in the ATtiny15 compatibility mode. To do that you should set CKSEL fuses to 0011 value
 ;
 
-;.include "tn15def.inc"
 .include "tn85def.inc"
 
 ; Variables
 .def TOOTH  =  r21            ;Tooth (pulse) conter
 .def FLAGS  =  r18            ;Flags used in interrupts
 .def PERD2  =  r19            ;Period / 2
-.def PERD4  =  r22            ;Period / 4
 ;              r17            ;For use as temporary register in interrupts
 ;              r20            ;For save SREG in interrupts
 ;              r16            ;For use in main loop
 ;              r23            ;For use in main loop
-;              r24            ;For use in main loop
 .def CAMST  =  r25            ;For cam sensor signal generation (1 time per 2 revolutions)
 
 
@@ -66,8 +61,8 @@
 .equ PERD_MIN  = 3            ;
 .equ PERD_MAX  = 253          ;
 #ifdef CAMSENSOR
-.equ CAM_P_BEF = 10           ; Beginning of can sensor pulse in teeth before reference pulse
-.equ CAM_P_AFT = 10           ; Ending of can sensor pulse in teeth before reference pulse
+.equ CAM_P_BEF = 3            ; Beginning of can sensor pulse in teeth before reference pulse
+.equ CAM_P_AFT = 3            ; Ending of can sensor pulse in teeth before reference pulse
 #endif
 
 ; Interrupt vectors
@@ -89,34 +84,21 @@ TC1OVF:
 
        sbrs FLAGS, 0
        rjmp TC1OVF_0
-       nop
+
+       cpi TOOTH, TOOTH_NUM - 2
+       BRSH  ST00             ;skip 2 teeth
 #ifndef CAMSENSOR
        sbi  PORTB, PB1
 #endif
        cbi  PORTB, PB2
+ST00:
        andi FLAGS, ~(1 << 0)
 
        CPI  TOOTH, 0
        BRNE L00
-       ldi  TOOTH, TOOTH_NUM
-       ori  FLAGS, (1 << 1)
-
-       out  OCR1A, PERD4      ;load 1/4 period
-       ldi  R17, (1 << OCF1A)
-       out  TIFR, R17         ;reset pending (unwanted) interrupt
-       ldi  R17, (1 << OCIE1A) | (1 << TOIE1);
-       out TIMSK, R17
+       com  CAMST
+       ldi  TOOTH, TOOTH_NUM  ;reload tooth counter
 L00:
-       CPI  TOOTH, TOOTH_NUM - 1
-       BRNE L10
-       andi FLAGS, ~(1 << 1)
-
-       out  OCR1A, PERD4      ;load 1/4 period
-       ldi  R17, (1 << OCF1A) ;reset pending (unwanted) interrupt
-       out  TIFR, R17
-       ldi  R17, (1 << OCIE1A) | (1 << TOIE1);
-       out TIMSK, R17
-L10:
 
 ;=====================================
 #ifdef CAMSENSOR
@@ -147,37 +129,10 @@ TC1OVF_0:
        reti
 
 ;------------------------------------
-TC1COMP:
-       in   r20, SREG
-       sbrs FLAGS, 1
-       rjmp TC1COMP_0
-       nop
-       sbi  PORTB, PB0
-       cbi  PORTB, PB4
-;=====================================
-#ifdef CAMSENSOR
-       com  CAMST
-#endif
-;=====================================
-       ldi  R17, (1 << TOIE1) ;disable Timer/Counter1 Compare Match interrupt
-       out  TIMSK, R17
-       out  SREG, r20
-       reti
-
-TC1COMP_0:
-       cbi  PORTB, PB0
-       sbi  PORTB, PB4
-       ldi  R17, (1 << TOIE1) ;disable Timer/Counter1 Compare Match interrupt
-       out  TIMSK, R17
-       out  SREG, r20
-       reti
-
-
-;------------------------------------
 RESET:
        ;prepare port b
-       ldi  r16, (1 << DDB4) | (1 << DDB2) | (1 << DDB1) | (1 << DDB0)
-       out  DDRB, r16         ;PB0, PB1, PB2, PB4 - outputs
+       ldi  r16, (1 << DDB2) | (1 << DDB1)
+       out  DDRB, r16         ;PB1, PB2 - outputs
        ldi  r16, 0x00
        out  PORTB, r16
 
@@ -193,7 +148,7 @@ RESET:
        ;configure Timer1
        ldi  r16, 0
        out  TCNT1, r16
-       ldi  r16, (1 << CS13) | (1 << CS10)
+       ldi  r16, (1 << CS13)
        out  TCCR1, r16
 
        ;configure ADC
@@ -234,14 +189,10 @@ L40:
        ;calculate period values
        ldi  R23, 0
        sub  R23, R16
-       mov  R24, R23
-       lsr  R16               ;divide by 2
-       add  R23, R16
 
        ;update period
        cli
-       mov PERD2, R24
-       mov PERD4, R23
+       mov PERD2, R23
        sei
 
        rjmp  loop

@@ -103,7 +103,9 @@ RESET:
        ;configure Timer1
        ldi  r16, 0
        out  TCNT1, r16
-       ldi  r16, (1 << CS13)
+;      ldi  r16, (1 << CS13)                             ;CLKio/128
+;      ldi  r16, (1 << CS13) | (1 << CS11) | (1 << CS10) ;CLKio/1024
+       ldi  r16, (1 << CS13) | (1 << CS12)               ;CLKio/2048
        out  TCCR1, r16
 
        ;configure ADC
